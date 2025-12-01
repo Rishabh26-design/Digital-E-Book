@@ -1,87 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Digital E-Book Reader</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<link rel="icon" type="image/png" href="asset/book.svg" />
 
-<!-- 1. PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<!-- 2. PageFlip Library -->
-<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
-<!-- 3. FontAwesome (For Icons) -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- 4. Custom Script -->
-<link rel="stylesheet" href="style.css" />
+<head>
+  <meta charset="UTF-8" />
+  <title>Digital E-Book Reader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="icon" type="image/png" href="asset/book.svg" />
+
+  <!-- 1. PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- 2. PageFlip Library -->
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+  <!-- 3. FontAwesome (For Icons) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 4. Custom Script -->
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
-<input type="file" id="pdfUpload" accept="application/pdf" style="display:none" onchange="handleUpload(this)">
+  <input type="file" id="pdfUpload" accept="application/pdf" style="display:none" onchange="handleUpload(this)">
 
-<div class="ui-bar topbar">
-  <div class="logo-area"><i class="fa-solid fa-book-open"></i> <span>Digital Reader</span></div>
-  <div class="search-bar">
-    <i class="fa-solid fa-magnifying-glass" onclick="performSearch()" title="Click to Search"></i>
-    <input type="text" id="searchInput" placeholder="Search..." onkeyup="if(event.key === 'Enter') performSearch()">
+  <div class="ui-bar topbar">
+    <div class="logo-area"><i class="fa-solid fa-book-open"></i> <span>Digital Reader</span></div>
+    <div class="search-bar">
+      <i class="fa-solid fa-magnifying-glass" onclick="performSearch()" title="Click to Search"></i>
+      <input type="text" id="searchInput" placeholder="Search..." onkeyup="if(event.key === 'Enter') performSearch()">
+    </div>
   </div>
-</div>
 
-<div class="stage" id="stage">
-  <div class="nav-arrow nav-prev" onclick="book.flipPrev()"><i class="fa-solid fa-chevron-left"></i></div>
-  <div class="nav-arrow nav-next" onclick="book.flipNext()"><i class="fa-solid fa-chevron-right"></i></div>
+  <div class="stage" id="stage">
+    <div class="nav-arrow nav-prev" onclick="book.flipPrev()"><i class="fa-solid fa-chevron-left"></i></div>
+    <div class="nav-arrow nav-next" onclick="book.flipNext()"><i class="fa-solid fa-chevron-right"></i></div>
 
-  <div id="placeholder">
-    <i class="fa-solid fa-cloud-arrow-up"></i>
-    <h2>No Document Loaded</h2>
-    <p>Please upload a PDF to begin reading.</p>
-    <button onclick="document.getElementById('pdfUpload').click()" style="margin-top:15px; padding:10px 20px; background:#3b5998; color:white; border:none; border-radius:4px; cursor:pointer;">Select PDF</button>
-  </div>
-  
-  <!-- Loader -->
-  <div id="loading">
-    <div id="loading-cover"></div>
-    <div id="loading-overlay">
+    <div id="placeholder">
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <h2>No Document Loaded</h2>
+      <p>Please upload a PDF to begin reading.</p>
+      <button onclick="document.getElementById('pdfUpload').click()"
+        style="margin-top:15px; padding:10px 20px; background:#3b5998; color:white; border:none; border-radius:4px; cursor:pointer;">Select
+        PDF</button>
+    </div>
+
+    <!-- Loader -->
+    <div id="loading">
+      <div id="loading-cover"></div>
+      <div id="loading-overlay">
         <div class="spinner"></div>
         <div id="loading-txt">Loading Book...</div>
+      </div>
     </div>
+
+    <div id="book" class="flip-book"></div>
+    <div class="thumbnails-pane" id="thumbsPane"></div>
+
+    <!-- Magnifier Glass Element -->
+    <div id="magnifier"><canvas id="magCanvas"></canvas></div>
+
+    <div id="trigger-prev" class="edge-trigger" style="display:none" onclick="book.flipPrev()"></div>
+    <div id="trigger-next" class="edge-trigger" style="display:none" onclick="book.flipNext()"></div>
   </div>
 
-  <div id="book" class="flip-book"></div>
-  <div class="thumbnails-pane" id="thumbsPane"></div>
-  
-  <!-- Magnifier Glass Element -->
-  <div id="magnifier"><canvas id="magCanvas"></canvas></div>
-  
-  <div id="trigger-prev" class="edge-trigger" style="display:none" onclick="book.flipPrev()"></div>
-  <div id="trigger-next" class="edge-trigger" style="display:none" onclick="book.flipNext()"></div>
-</div>
-
-<div class="ui-bar bottombar">
-  <div class="controls-group ctrl-left">
-    <button class="btn-icon" onclick="document.getElementById('pdfUpload').click()" title="Upload PDF"><i class="fa-solid fa-folder-open"></i></button>
-    <button class="btn-icon" id="btnThumbToggle" onclick="toggleThumbnails()" title="Thumbnails"><i class="fa-solid fa-table-cells-large"></i></button>
-    <button class="btn-icon" id="btnAutoPlay" onclick="toggleAutoPlay()" title="Auto Play"><i class="fa-solid fa-play"></i></button>
-    <button class="btn-icon" id="btnSound" onclick="toggleSound()" title="Sound On/Off"><i class="fa-solid fa-volume-high"></i></button>
-    <!-- Moved Magnifier Here -->
-    <button class="btn-icon" id="btnMagnify" onclick="toggleMagnifier()" title="Hover Magnifier"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-  </div>
-  <div class="controls-group ctrl-center">
-    <button class="btn-icon" onclick="book.flip(0)" title="First Page"><i class="fa-solid fa-backward-step"></i></button>
-    <button class="btn-icon" onclick="book.flipPrev()" title="Previous"><i class="fa-solid fa-caret-left"></i></button>
-    <div class="page-input-container">
-      <input type="number" id="pageInput" value="0" min="1" onchange="jumpToPage(this.value)">
-      <span id="pageTotal">/ 0</span>
+  <div class="ui-bar bottombar">
+    <div class="controls-group ctrl-left">
+      <button class="btn-icon" onclick="document.getElementById('pdfUpload').click()" title="Upload PDF"><i
+          class="fa-solid fa-folder-open"></i></button>
+      <button class="btn-icon" id="btnThumbToggle" onclick="toggleThumbnails()" title="Thumbnails"><i
+          class="fa-solid fa-table-cells-large"></i></button>
+      <button class="btn-icon" id="btnAutoPlay" onclick="toggleAutoPlay()" title="Auto Play"><i
+          class="fa-solid fa-play"></i></button>
+      <button class="btn-icon" id="btnSound" onclick="toggleSound()" title="Sound On/Off"><i
+          class="fa-solid fa-volume-high"></i></button>
+      <button class="btn-icon" id="btnMagnify" onclick="toggleMagnifier()" title="Hover Magnifier"><i
+          class="fa-solid fa-magnifying-glass-plus"></i></button>
     </div>
-    <button class="btn-icon" onclick="book.flipNext()" title="Next"><i class="fa-solid fa-caret-right"></i></button>
-    <button class="btn-icon" onclick="goToLast()" title="Last Page"><i class="fa-solid fa-forward-step"></i></button>
+
+    <div class="controls-group ctrl-center">
+      <button class="btn-icon" onclick="book.flip(0)" title="First Page"><i
+          class="fa-solid fa-backward-step"></i></button>
+      <button class="btn-icon" onclick="book.flipPrev()" title="Previous"><i
+          class="fa-solid fa-caret-left"></i></button>
+      <div class="page-input-container">
+        <input type="number" id="pageInput" value="0" min="1" onchange="jumpToPage(this.value)">
+        <span id="pageTotal">/ 0</span>
+      </div>
+      <button class="btn-icon" onclick="book.flipNext()" title="Next"><i class="fa-solid fa-caret-right"></i></button>
+      <button class="btn-icon" onclick="goToLast()" title="Last Page"><i class="fa-solid fa-forward-step"></i></button>
+    </div>
+    
+    <div class="controls-group ctrl-right">
+      <button class="btn-icon" onclick="zoomBook(0.1)" title="Zoom In"><i
+          class="fa-solid fa-magnifying-glass-plus"></i></button>
+      <button class="btn-icon" onclick="zoomBook(-0.1)" title="Zoom Out"><i
+          class="fa-solid fa-magnifying-glass-minus"></i></button>
+      <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen"><i
+          class="fa-solid fa-expand"></i></button>
+    </div>
   </div>
-  <div class="controls-group ctrl-right">
-    <button class="btn-icon" onclick="zoomBook(0.1)" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-    <button class="btn-icon" onclick="zoomBook(-0.1)" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-    <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
-  </div>
-</div>
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
+
 </html>

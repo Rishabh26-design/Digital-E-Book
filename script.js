@@ -1,11 +1,4 @@
 // --- CONFIG ---
-// ----------------------------------------------------
-// DEFAULT PDF CONFIGURATION
-// To load a PDF automatically on start:
-// 1. Place your PDF file in the project folder.
-// 2. Enter the file name below (e.g., "manual.pdf").
-// 3. Leave empty "" to show the upload button first.
-// ----------------------------------------------------
 const DEFAULT_MANUAL_URL = "asset/SED 3.0_Magazine.pdf";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -18,10 +11,11 @@ let isSoundOn = true;
 let currentZoom = 1;
 const isMobile = window.innerWidth < 768;
 let currentSearchQuery = "";
+// Magnifier State
+let isMagnifierOn = false;
 
 // --- INITIALIZATION ---
 window.onload = () => {
-  // Check if default manual exists
   if (DEFAULT_MANUAL_URL && DEFAULT_MANUAL_URL.trim() !== "") {
     loadDefaultManual();
   }
@@ -31,7 +25,7 @@ async function loadDefaultManual() {
   showLoading(true, "Loading Default Manual...");
   try {
     const response = await fetch(DEFAULT_MANUAL_URL);
-    if (!response.ok) throw new Error("Default PDF not found");
+    if (!response.ok) throw new Error("Default PDF not found or CORS error");
     const buffer = await response.arrayBuffer();
     await loadPDFFromBuffer(buffer);
   } catch (e) {
@@ -47,18 +41,17 @@ async function handleUpload(input) {
   const file = input.files[0];
   const buffer = await file.arrayBuffer();
   await loadPDFFromBuffer(buffer);
-  input.value = ""; // Reset input
+  input.value = "";
 }
 
-// --- 2. CORE PDF LOADER (Refactored) ---
+// --- 2. CORE PDF LOADER ---
 async function loadPDFFromBuffer(buffer) {
   resetUI();
   document.getElementById("placeholder").style.display = "none";
-  showLoading(true, "Processing PDF...");
+  showLoading(true, "Analyzing PDF...");
 
   try {
     pdfDoc = await pdfjsLib.getDocument(buffer).promise;
-
     const p1 = await pdfDoc.getPage(1);
     const vp = p1.getViewport({ scale: 1 });
     const ratio = vp.width / vp.height;
@@ -76,13 +69,31 @@ async function loadPDFFromBuffer(buffer) {
       w = h * ratio;
     }
 
-    showLoading(true, `Rendering ${pdfDoc.numPages} Pages...`);
+    const loader = document.getElementById("loading");
+    const loaderCover = document.getElementById("loading-cover");
+    loader.style.width = `${w}px`;
+    loader.style.height = `${h}px`;
+
+    const coverCanvas = document.createElement("canvas");
+    const coverCtx = coverCanvas.getContext("2d");
+    const coverScale = h / vp.height;
+    const coverVp = p1.getViewport({ scale: coverScale });
+    coverCanvas.width = coverVp.width;
+    coverCanvas.height = coverVp.height;
+
+    p1.render({ canvasContext: coverCtx, viewport: coverVp }).promise.then(
+      () => {
+        loaderCover.innerHTML = "";
+        loaderCover.appendChild(coverCanvas);
+      }
+    );
+
+    showLoading(true, `Processing ${pdfDoc.numPages} Pages...`);
 
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       await createDOMPage(i, w, h);
-      document.getElementById(
-        "loading-txt"
-      ).innerText = `Page ${i}/${pdfDoc.numPages}`;
+      const pct = Math.round((i / pdfDoc.numPages) * 100);
+      document.getElementById("loading-txt").innerText = `Loading... ${pct}%`;
     }
 
     generateThumbnails(pdfDoc);
@@ -104,10 +115,11 @@ async function createDOMPage(num, width, height) {
   pageDiv.className = "page";
   pageDiv.id = `page-${num}`;
 
-  if (num === 1) {
-    pageDiv.classList.add("-hard");
+  // FIX: Treated ALL pages as soft paper, including cover
+  if (num % 2 === 0) {
+    pageDiv.classList.add("-left");
   } else {
-    pageDiv.classList.add(num % 2 === 0 ? "-left" : "-right");
+    pageDiv.classList.add("-right");
   }
   pageDiv.setAttribute("data-density", "soft");
 
@@ -169,7 +181,106 @@ function initBook(width, height) {
 
   updateUI(0);
   setTimeout(() => updateBookPosition(0), 100);
+
+  // --- MOUSE WHEEL SCROLL TO FLIP ---
+  bookEl.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    if (e.deltaY > 0) {
+      book.flipNext();
+    } else {
+      book.flipPrev();
+    }
+  });
 }
+
+// --- MAGNIFIER LOGIC (Adjusted) ---
+function toggleMagnifier() {
+  isMagnifierOn = !isMagnifierOn;
+  const btn = document.getElementById("btnMagnify");
+  const mag = document.getElementById("magnifier");
+
+  if (isMagnifierOn) {
+    btn.classList.add("active");
+    document.body.style.cursor = "none"; // Hide default cursor when magnifier active
+  } else {
+    btn.classList.remove("active");
+    mag.style.display = "none";
+    document.body.style.cursor = "default";
+  }
+}
+
+// Handle Mouse Move for Magnifier
+document.addEventListener("mousemove", (e) => {
+  if (!isMagnifierOn) return;
+
+  const mag = document.getElementById("magnifier");
+  const magCanvas = document.getElementById("magCanvas");
+  const magCtx = magCanvas.getContext("2d");
+
+  // Position magnifier at cursor
+  mag.style.display = "block";
+  mag.style.left = e.clientX + "px";
+  mag.style.top = e.clientY + "px";
+
+  // Find element under cursor
+  mag.style.display = "none";
+  const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+  mag.style.display = "block";
+
+  if (!elemBelow) return;
+
+  let targetCanvas = null;
+  if (elemBelow.tagName === "CANVAS") {
+    targetCanvas = elemBelow;
+  } else {
+    const pageContent = elemBelow.closest(".page-content");
+    if (pageContent) {
+      targetCanvas = pageContent.querySelector("canvas");
+    }
+  }
+
+  if (targetCanvas) {
+    const rect = targetCanvas.getBoundingClientRect();
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const scaleX = targetCanvas.width / rect.width;
+    const scaleY = targetCanvas.height / rect.height;
+
+    // --- ZOOM TWEAKED ---
+    const zoomLevel = 0.8; // Reduced zoom level
+    const radius = 130; // Increased radius (Half of 260px)
+
+    const srcW = (radius * 2) / zoomLevel;
+    const srcH = (radius * 2) / zoomLevel;
+
+    const srcX = x * scaleX - srcW / 2;
+    const srcY = y * scaleY - srcH / 2;
+
+    magCanvas.width = radius * 2;
+    magCanvas.height = radius * 2;
+
+    magCtx.fillStyle = "#fff";
+    magCtx.fillRect(0, 0, magCanvas.width, magCanvas.height);
+
+    magCtx.drawImage(
+      targetCanvas,
+      srcX,
+      srcY,
+      srcW,
+      srcH,
+      0,
+      0,
+      radius * 2,
+      radius * 2
+    );
+  } else {
+    // Not over a page
+    magCtx.fillStyle = "#eee";
+    magCtx.fillRect(0, 0, 260, 260); // Match updated size
+  }
+});
 
 // --- 5. SEARCH & HIGHLIGHT ---
 async function performSearch() {
@@ -364,7 +475,7 @@ async function renderThumbnailItem(pageNum, container, isHighlight = false) {
 
     const lbl = document.createElement("div");
     lbl.className = "thumb-label";
-    lbl.innerText = `Page ${pageNum}`;
+    lbl.innerText = pageNum === 1 ? "Cover" : `Page ${pageNum}`;
     div.appendChild(lbl);
     container.appendChild(div);
 
@@ -461,6 +572,11 @@ function resetUI() {
 
   const stage = document.getElementById("stage");
   const thumbs = document.getElementById("thumbsPane");
+  const loader = document.getElementById("loading"); // Loader should stay
+  // Ensure book is inserted BEFORE thumbs but AFTER loader if needed, or just append to stage
+  // Stage structure: arrows, placeholder, loader, book, thumbs, triggers
+
+  // Simplest: just recreate book
   stage.insertBefore(newBook, thumbs);
 
   document.getElementById("thumbsPane").innerHTML = "";
@@ -469,6 +585,9 @@ function resetUI() {
     .querySelectorAll(".highlighter-layer")
     .forEach((el) => (el.innerHTML = ""));
   pdfDoc = null;
+
+  // Reset loader cover
+  document.getElementById("loading-cover").innerHTML = "";
 }
 
 document.addEventListener("click", (e) => {
@@ -485,6 +604,13 @@ document.addEventListener("click", (e) => {
       sidebar.classList.remove("open");
     }
   }
+});
+
+// KEYBOARD NAVIGATION
+document.addEventListener("keydown", (e) => {
+  if (!book) return;
+  if (e.key === "ArrowLeft") book.flipPrev();
+  if (e.key === "ArrowRight") book.flipNext();
 });
 
 window.addEventListener("resize", () => {

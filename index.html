@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>MyGov Digital Reader Style</title>
+<title>Digital E-Book Reader</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" type="image/png" href="asset/book.svg" />
 
 <!-- 1. PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -11,12 +12,12 @@
 <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 <!-- 3. FontAwesome (For Icons) -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- 4. Custom Script -->
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <input type="file" id="pdfUpload" accept="application/pdf" style="display:none" onchange="handleUpload(this)">
-<div id="loading"><div class="spinner"></div><div id="loading-txt">Loading Book...</div></div>
 
 <div class="ui-bar topbar">
   <div class="logo-area"><i class="fa-solid fa-book-open"></i> <span>Digital Reader</span></div>
@@ -37,8 +38,20 @@
     <button onclick="document.getElementById('pdfUpload').click()" style="margin-top:15px; padding:10px 20px; background:#3b5998; color:white; border:none; border-radius:4px; cursor:pointer;">Select PDF</button>
   </div>
   
+  <!-- Loader -->
+  <div id="loading">
+    <div id="loading-cover"></div>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-txt">Loading Book...</div>
+    </div>
+  </div>
+
   <div id="book" class="flip-book"></div>
   <div class="thumbnails-pane" id="thumbsPane"></div>
+  
+  <!-- Magnifier Glass Element -->
+  <div id="magnifier"><canvas id="magCanvas"></canvas></div>
   
   <div id="trigger-prev" class="edge-trigger" style="display:none" onclick="book.flipPrev()"></div>
   <div id="trigger-next" class="edge-trigger" style="display:none" onclick="book.flipNext()"></div>
@@ -50,6 +63,8 @@
     <button class="btn-icon" id="btnThumbToggle" onclick="toggleThumbnails()" title="Thumbnails"><i class="fa-solid fa-table-cells-large"></i></button>
     <button class="btn-icon" id="btnAutoPlay" onclick="toggleAutoPlay()" title="Auto Play"><i class="fa-solid fa-play"></i></button>
     <button class="btn-icon" id="btnSound" onclick="toggleSound()" title="Sound On/Off"><i class="fa-solid fa-volume-high"></i></button>
+    <!-- Moved Magnifier Here -->
+    <button class="btn-icon" id="btnMagnify" onclick="toggleMagnifier()" title="Hover Magnifier"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
   </div>
   <div class="controls-group ctrl-center">
     <button class="btn-icon" onclick="book.flip(0)" title="First Page"><i class="fa-solid fa-backward-step"></i></button>
@@ -67,6 +82,6 @@
     <button class="btn-icon" onclick="toggleFullscreen()" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
   </div>
 </div>
-<script src="script.js" defer></script>
+<script src="script.js"></script>
 </body>
 </html>
